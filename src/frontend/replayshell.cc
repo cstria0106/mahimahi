@@ -97,7 +97,7 @@ int main( int argc, char *argv[] )
 
             const vector< string > files = list_directory_contents( directory  );
 
-            for ( const auto filename : files ) {
+            for ( const auto &filename : files ) {
                 FileDescriptor fd( SystemCall( "open", open( filename.c_str(), O_RDONLY ) ) );
 
                 MahimahiProtobufs::RequestResponse protobuf;
@@ -120,7 +120,7 @@ int main( int argc, char *argv[] )
 
         /* set up dummy interfaces */
         unsigned int interface_counter = 0;
-        for ( const auto ip : unique_ip ) {
+        for ( const auto &ip : unique_ip ) {
             add_dummy_interface( "sharded" + to_string( interface_counter ), ip );
             interface_counter++;
         }
@@ -134,9 +134,9 @@ int main( int argc, char *argv[] )
         string server_name;
         char* ca_key;
         ca_key = getpass ("enter priavet_key password : ");
-        for ( const auto ip_port : unique_ip_and_port ) {
+        for ( const auto &ip_port : unique_ip_and_port ) {
 	    servernames.clear();
-            for ( const auto mapping : hostname_to_ip ) {
+            for ( const auto &mapping : hostname_to_ip ) {
                 if (mapping.second== ip_port) {
                     servernames.insert(mapping.first);
                 }
@@ -152,7 +152,7 @@ int main( int argc, char *argv[] )
 
         /* set up DNS server */
         TempFile dnsmasq_hosts( "/tmp/replayshell_hosts" );
-        for ( const auto mapping : hostname_to_ip ) {
+        for ( const auto &mapping : hostname_to_ip ) {
             std::cout << "dns mapping: " << mapping.second.ip() << " " << mapping.first << std::endl;
             dnsmasq_hosts.write( mapping.second.ip() + " " + mapping.first + "\n" );
         }

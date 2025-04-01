@@ -108,27 +108,77 @@ static int ssl_servername_cb( SSL * ssl,
 }
 
 
-SSLContext::SSLContext( const SSL_MODE type )
-    : ctx_( initialize_new_context( type ) )
-{
-    if ( type == SERVER ) {
-        if ( not SSL_CTX_use_certificate_ASN1( ctx_.get(), 678, certificate ) ) {
-            throw ssl_error( "SSL_CTX_use_certificate_ASN1" );
+// SSLContext::SSLContext( const SSL_MODE type )
+//     : ctx_( initialize_new_context( type ) )
+// {
+//     if ( type == SERVER ) {
+//         if ( not SSL_CTX_use_certificate_ASN1( ctx_.get(), 678, certificate ) ) {
+//             throw ssl_error( "SSL_CTX_use_certificate_ASN1" );
+//         }
+// 
+//         if ( not SSL_CTX_use_RSAPrivateKey_ASN1( ctx_.get(), private_key, 1191 ) ) {
+//             throw ssl_error( "SSL_CTX_use_RSAPrivateKey_ASN1" );
+//         }
+// 
+//         /* check consistency of private key with loaded certificate */
+//         if ( not SSL_CTX_check_private_key( ctx_.get() ) ) {
+//             throw ssl_error( "SSL_CTX_check_private_key" );
+//         }
+// 
+//         /* callback to get SNI information from client */
+//         SSL_CTX_set_tlsext_servername_callback( ctx_.get(), ssl_servername_cb );
+//     }
+// }
+
+SSLContext::SSLContext(const SSL_MODE type)
+    : ctx_(initialize_new_context(type)) {
+    if (type == SERVER) {
+        BIO* certbio = BIO_new_mem_buf(certificate, 678);
+        if (!certbio) {
+            throw ssl_error("BIO_new_mem_buf (certificate)");
         }
 
-        if ( not SSL_CTX_use_RSAPrivateKey_ASN1( ctx_.get(), private_key, 1191 ) ) {
-            throw ssl_error( "SSL_CTX_use_RSAPrivateKey_ASN1" );
+        X509* cert = PEM_read_bio_X509(certbio, nullptr, nullptr, nullptr);
+        BIO_free(certbio);
+
+        if (!cert) {
+            throw ssl_error("PEM_read_bio_X509 (certificate)");
         }
+
+        if (SSL_CTX_use_certificate(ctx_.get(), cert) != 1) {
+            X509_free(cert);
+            throw ssl_error("SSL_CTX_use_certificate");
+        }
+        X509_free(cert);
+
+        BIO* keybio = BIO_new_mem_buf(private_key, 1191);
+        if (!keybio) {
+            throw ssl_error("BIO_new_mem_buf (private_key)");
+        }
+
+        EVP_PKEY* pkey = PEM_read_bio_PrivateKey(keybio, nullptr, nullptr, nullptr);
+        BIO_free(keybio);
+
+        if (!pkey) {
+            throw ssl_error("PEM_read_bio_PrivateKey");
+        }
+
+        if (SSL_CTX_use_PrivateKey(ctx_.get(), pkey) != 1) {
+            EVP_PKEY_free(pkey);
+            throw ssl_error("SSL_CTX_use_PrivateKey");
+        }
+        EVP_PKEY_free(pkey);
 
         /* check consistency of private key with loaded certificate */
-        if ( not SSL_CTX_check_private_key( ctx_.get() ) ) {
-            throw ssl_error( "SSL_CTX_check_private_key" );
+        if (SSL_CTX_check_private_key(ctx_.get()) != 1) {
+            throw ssl_error("SSL_CTX_check_private_key");
         }
 
         /* callback to get SNI information from client */
-        SSL_CTX_set_tlsext_servername_callback( ctx_.get(), ssl_servername_cb );
+        SSL_CTX_set_tlsext_servername_callback(ctx_.get(), ssl_servername_cb);
     }
 }
+
 
 SecureSocket::SecureSocket( TCPSocket && sock, SSL * ssl )
     : TCPSocket( move( sock ) ),
